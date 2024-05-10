@@ -1,56 +1,61 @@
-import { type Response, type Request, request, response } from "express";
+import { type Response, type Request } from "express";
 import bCrypt from "bcrypt";
-import UserModel from "../schema/userSchema";
+import userModel from "../schema/userSchema";
 
 class AuthController {
-  private userModel: typeof UserModel;
+  constructor() {}
 
-  constructor() {
-    this.userModel = UserModel();
-  }
-  async signin(req: Request, res: Response): Promise<Response> {
+  async signin(req: Request, res: Response) {
+    let foundUser = {};
     try {
-      const foundUser = await this.userModel.findOne({
-        username: req.body.username,
-      });
+      const query = await userModel
+        .findOne({
+          username: req.body.username,
+        })
+        .exec();
 
-      if (!foundUser)
+      console.log(query);
+
+      if (!query)
         return res.status(404).send({ message: "user does not exist" });
 
       // compare passwords
-      const isMatch = await bCrypt.compare(
-        req.body.password,
-        foundUser.password
-      );
+      let isMatch = false;
+      if (query.password !== null && query.password !== undefined)
+        isMatch = bCrypt.compareSync(req.body.password, query.password);
 
       if (!isMatch) return res.status(401).send();
 
-      return foundUser;
-    } catch (error) {}
+      return query;
+    } catch (error: any) {
+      throw new Error(`ERR SIGNING IN => , ${error.message}`);
+    }
   }
 
   async signup(req: Request, res: Response) {
     try {
-      const foundUser = await this.findUser(request.body.username);
+      const query = await this.findUser(req.body.username);
 
-      if (foundUser)
+      if (query)
         return res.status(409).send({ message: "user already exists" });
 
       //   harsh password
-      const hashedPassword = await bCrypt.hash(request.body.password, 10);
+      const hashedPassword = await bCrypt.hash(req.body.password, 10);
 
-      const newUser = new this.userModel({
+      const newUser = userModel.create({
         username: req.body.username,
         password: hashedPassword,
       });
 
       return newUser;
-    } catch (error) {}
+    } catch (error: any) {
+      throw new Error(`ERR SIGNING UP => , ${error.message}`);
+    }
   }
 
   //   service
   async findUser(username: string) {
-    const foundUser = await this.userModel.findOne({
+    const foundUser = await userModel.findOne({
       username: username,
     });
 
